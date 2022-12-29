@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Encrypted_OW</title>
+    <style>
+      body { margin: 0; padding-bottom: 3rem; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+
+      #form { background: rgba(0, 0, 0, 0.15); padding: 0.25rem; position: fixed; bottom: 0; left: 0; right: 0; display: flex; height: 3rem; box-sizing: border-box; backdrop-filter: blur(10px); }
+      #input { border: none; padding: 0 1rem; flex-grow: 1; border-radius: 2rem; margin: 0.25rem; }
+      #input:focus { outline: none; }
+      #form > button { background: #333; border: none; padding: 0 1rem; margin: 0.25rem; border-radius: 3px; outline: none; color: #fff; }
+
+      #messages { list-style-type: none; margin: 0; padding: 0; }
+      #messages > li { padding: 0.5rem 1rem; }
+      #messages > li:nth-child(odd) { background: #efefef; }
+      .topnav {
+  background-color: #333;
+  overflow: hidden;
+}
+
+/* Style the links inside the navigation bar */
+.topnav b {
+  float: left;
+  color: #f2f2f2;
+  text-align: center;
+  padding: 14px 16px;
+  text-decoration: none;
+  font-size: 17px;
+}
+p{
+	color:#f2f2f2;
+}
+
+/* Change the color of links on hover */
+.topnav b:hover {
+  background-color: #ddd;
+  color: black;
+}
+
+/* Add a color to the active/current link */
+.topnav b.active {
+  background-color: #04AA6D;
+  color: white;
+}
+    </style>
+  </head>
+ <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.min.js"></script>
+
+  <body>
+  	<div id="app">
+  		<div v-if="state==4">
+  			<div class="topnav">
+  			<b class="active" >TheEye's talk</b>
+			</div>
+    		<ul id="messages"> 
+    			<li v-for="user in users">
+    				<b v-on:click="select($event)">{{user}}</b><br></br>
+    			</li>
+
+
+    		</ul>
+    		
+    	</div>
+  		<div v-if="state==1">
+  			<div class="topnav">
+  		<b class="active" >TheEye's talk</b>
+  		<p>{{status}}</p>
+			</div>
+    		<ul id="messages"> 
+    			<li v-for="message in prevmsgs">
+    				<b>{{message.by.name}}</b> : {{message.msg}}<br></br>
+    				{{message.at}}
+    			</li>
+    			<li v-for="message in messages">
+    				<p style="font-size:3vw">
+    				{{message.by}} : {{message.msg}}<br></br>
+    				{{message.at}}
+    			</p>
+
+    			</li>
+
+
+    		</ul>
+    		</form>
+    		<form  @submit.prevent="sendmsg"  id="form" >
+      		<input id="input" v-model:value="message" autocomplete="off" /><button>Send</button>
+    		</form>
+    	</div>
+    	<div v-if="state==5">
+    		<div class="topnav">
+  			<b class="active" >TheEye's talk</b>
+  			<p>{{status}}</p>
+			</div>
+    		<ul id="messages"> 
+    			<li v-for="message in prevmsgs">
+    				<b>{{message.by.name}}</b> : {{message.msg}}<br></br>
+    				{{message.at}}
+    			</li>
+
+    			<li v-for="message in messages">
+    				{{message.by}} : {{message.msg}}<br></br>
+    				{{message.at}}
+    			</li>
+
+
+    		</ul>
+    		</form>
+    		<form  @submit.prevent="sendmsg"  id="form" >
+      		<input id="input" v-model:value="message" autocomplete="off" /><button>Send</button>
+    		</form>
+    	</div>
+    	<div v-if="state==0">
+    		<form  @submit.prevent="register"  id="form1" >
+    		<h3>NOTE: not using your own name can lead to unpredictable consequences :)</h3> 
+      		<input id="input1" placeholder="enter your name...." v-model:value="name" autocomplete="off" /><button>Start talking</button>
+    		
+	</div>
+	<script src="/socket.io/socket.io.js"></script>
+	
+		<script> 
+			let socket=null;
+			let app=new Vue({
+				el:'#app',
+				data:{
+				name:'',
+				message:'',
+				messages:[],
+				state:0,
+				to:'',
+				by:'',
+				users:[],
+				status:'',
+				prevmsgs:[]
+
+				},
+
+			methods:{
+				sendmsg:function(){
+					if(this.state==1){
+					socket.emit('message',{msg:this.message,to:"thecreator",by:localStorage.getItem("name")})
+					app.messages.push({by:localStorage.getItem("name"),to:"thecreator",msg:this.message})
+					this.message="";
+				}
+				else if (this.state==5){
+					socket.emit("message",{msg:this.message,to:localStorage.getItem("to"),by:"thecreator"})
+					app.messages.push({by:"thecreator",to:localStorage.getItem("to"),msg:this.message})
+					this.message=""
+				}
+				},
+				 select: function(event) {
+            	targetname = event.currentTarget.innerHTML;
+            	localStorage.setItem('to',targetname)
+            	socket.emit('creatorjoined',{name:localStorage.getItem("name"),to:targetname})
+            	
+            	this.state=1
+            	window.location.reload()
+        	},
+				register:function(){
+				fetch('/signup',{
+					method:"POST",
+					headers:{
+						"Content-Type":"application/json"
+					},
+					body:JSON.stringify({name:this.name})
+				}).then(res=>res.json())
+				.then(result=>{
+					console.log(result)
+					localStorage.setItem("id",result.id)
+					localStorage.setItem("name",result.name)
+				})
+
+			}
+				},
+			
+			created: function(){
+				socket=io()
+				if(localStorage.getItem("id")){
+					fetch('/checkforuser',{
+						method:"POST",
+						headers:{
+							"Content-Type":"application/json"
+						},
+						body:JSON.stringify({id:localStorage.getItem("id")})
+					})
+					.then(res=>res.json())
+					.then(result=>{
+						if(result.success && !localStorage.getItem("to")){
+							this.state=4
+						}else if(result.success && localStorage.getItem("to")){
+							this.state=5
+							socket.emit('creatorjoined',{name:localStorage.getItem("name"),to:localStorage.getItem("to")})
+						
+						
+						}
+
+						else{
+
+							this.state=1
+							
+							socket.emit('join',localStorage.getItem("name"))
+							
+
+						}
+					})
+
+						if(localStorage.getItem("to")){
+							user1="thecreator"
+							user2=localStorage.getItem("to")
+						}else{
+							user1=localStorage.getItem("name")
+							user2="thecreator"
+						}
+						fetch('/prevmsgs',{
+							method:"POST",
+							headers:{
+							"Content-Type":"application/json"
+							},
+							body:JSON.stringify({user1,user2})
+
+							})
+							.then(res=>res.json())
+							.then(result=>{
+						for(let i=0;i<result.length;i++){
+							app.prevmsgs.push(result[i])
+						}
+					})
+				
+
+					
+					
+					
+					
+					fetch('/users').then(res=>res.json())
+					.then(result=>{
+						if(this.state==4){
+						console.log(result)
+						for(let i=0;i<result.length;i++){
+							app.users.push(result[i])
+						}
+						
+						
+						
+					}
+
+
+					})
+
+					
+				}
+			},
+			
+			mounted:function(){
+
+				socket.on('message',function(message){
+					app.messages.push(message)
+					
+				})
+				socket.on('status',function(stat){
+
+					app.status=stat
+					console.log(app.status)
+				})
+			}
+		})
+			
+			
+</script>
+  </body>
+
+</html>
